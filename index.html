@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT Control Center - MVP Demo</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            900: '#0f172a',
+                            800: '#1e293b',
+                            700: '#334155',
+                            600: '#475569',
+                        },
+                        cyan: {
+                            400: '#22d3ee',
+                            500: '#06b6d4',
+                            600: '#0891b2',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #cbd5e1; overflow-x: hidden; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #06b6d4; }
+        
+        .page-section { display: none; animation: fadeIn 0.3s ease-in-out; }
+        .page-section.active { display: block; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Custom Toggle Switch */
+        .toggle-checkbox:checked { right: 0; border-color: #06b6d4; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #06b6d4; }
+        
+        /* Sidebar Active State */
+        .nav-link.active { background-color: rgba(6, 182, 212, 0.1); border-right: 3px solid #06b6d4; color: #22d3ee; }
+        
+        /* Table Hover */
+        .table-row:hover { background-color: rgba(51, 65, 85, 0.5); }
+        
+        /* Chart Containers */
+        .chart-container { position: relative; height: 300px; width: 100%; }
+        .mini-chart-container { position: relative; height: 100px; width: 100%; }
+        
+        /* Modal overlay */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 50; justify-content: center; align-items: center; }
+        .modal.active { display: flex; }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+
+    <!-- DEMO BANNER -->
+    <div class="fixed top-0 left-0 w-full bg-cyan-600 text-white text-center py-1 text-xs font-bold tracking-wider z-50 shadow-md">
+        <i class="fa-solid fa-flask mr-2"></i> DEMO/SIMULATED ENVIRONMENT - NO REAL DEVICES, CLOUD, OR DATABASE CONNECTIONS
+    </div>
+
+    <!-- Mobile Header -->
+    <div class="md:hidden fixed top-8 w-full bg-slate-900 border-b border-slate-700 p-4 flex justify-between items-center z-40">
+        <div class="text-xl font-bold text-cyan-400">IoT Center</div>
+        <button onclick="toggleSidebar()" class="text-slate-300 hover:text-white"><i class="fa-solid fa-bars text-xl"></i></button>
+    </div>
+
+    <!-- Sidebar -->
+    <aside id="sidebar" class="fixed md:relative w-64 h-full bg-slate-900 border-r border-slate-700 flex flex-col z-40 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out pt-16 md:pt-8">
+        <div class="p-6 hidden md:block">
+            <div class="text-2xl font-bold text-cyan-400 tracking-wider">
+                <i class="fa-solid fa-microchip mr-2"></i>IoT Center
+            </div>
+            <div class="text-xs text-slate-500 mt-1">v1.0 MVP</div>
+        </div>
+        
+        <nav class="flex-1 overflow-y-auto mt-4 px-2 space-y-1">
+            <button onclick="navigateTo('overview')" class="nav-link active w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors">
+                <i class="fa-solid fa-chart-pie w-6"></i> Overview
+            </button>
+            <button onclick="navigateTo('devices')" class="nav-link w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors">
+                <i class="fa-solid fa-server w-6"></i> Device Monitoring
+            </button>
+            <button onclick="navigateTo('readings')" class="nav-link w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors">
+                <i class="fa-solid fa-wave-square w-6"></i> Live Sensor Readings
+            </button>
+            <button onclick="navigateTo('network')" class="nav-link w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors">
+                <i class="fa-solid fa-network-wired w-6"></i> Network Connectivity
+            </button>
+            <button onclick="navigateTo('cloud')" class="nav-link w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors">
+                <i class="fa-solid fa-cloud w-6"></i> Cloud Status
+            </button>
+            <button onclick="navigateTo('database')" class="nav-link w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors">
+                <i class="fa-solid fa-database w-6"></i> Database Statistics
+            </button>
+            <button onclick="navigateTo('security')" class="nav-link w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors">
+                <i class="fa-solid fa-shield-halved w-6"></i> Cybersecurity
+            </button>
+            <button onclick="navigateTo('alerts')" class="nav-link w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors relative">
+                <i class="fa-solid fa-triangle-exclamation w-6"></i> Alerts
+                <span id="alert-badge" class="absolute right-4 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">3</span>
+            </button>
+            <div class="pt-4 pb-2 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">System</div>
+            <button onclick="navigateTo('settings')" class="nav-link w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors">
+                <i class="fa-solid fa-gear w-6"></i> Settings & Commands
+            </button>
+            <button onclick="navigateTo('help')" class="nav-link w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors">
+                <i class="fa-solid fa-circle-info w-6"></i> Help & Limitations
+            </button>
+        </nav>
+        
+        <div class="p-4 border-t border-slate-700">
+            <div class="flex items-center">
+                <div class="w-8 h-8 rounded-full bg-cyan-900 flex items-center justify-center text-cyan-400 font-bold border border-cyan-600">D</div>
+                <div class="ml-3">
+                    <div class="text-sm font-medium text-white">Demo Admin</div>
+                    <div class="text-xs text-slate-500">SIMULATED USER</div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 h-full overflow-y-auto mt-24 md:mt-8 p-4 md:p-8 relative">
+        
+        <!-- GLOBAL HEADER -->
+        <header class="flex justify-between items-center mb-8">
+            <div>
+                <h1 id="page-title" class="text-2xl font-bold text-white">Overview</h1>
+                <p class="text-sm text-slate-400 mt-1">System status and simulated analytics.</p>
+            </div>
+            <div class="flex items-center space-x-4">
+                <span class="px-3 py-1 bg-cyan-900/50 text-cyan-400 border border-cyan-800 rounded-full text-xs font-semibold">
+                    <i class="fa-solid fa-circle text-[8px] mr-1 animate-pulse"></i> DEMO MODE ACTIVE
+                </span>
+                <button class="text-slate-400 hover:text-white transition-colors"><i class="fa-solid fa-bell"></i></button>
+            </div>
+        </header>
+
+        <!-- ================= OVERVIEW SECTION ================= -->
+        <section id="overview" class="page-section active">
+            <!-- KPI Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                <div class="bg-slate-800 rounded-xl p-5 border border-slate-700 shadow-lg relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-2 bg-slate-700 rounded-bl-lg text-xs font-bold text-yellow-400">SIMULATED</div>
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-slate-400 text-sm font-medium">Total Devices</p>
+                            <h3 class="text-3xl font-bold text-white mt-1">24</h3>
+                        </div>
+                        <div class="p-2 bg-cyan-900/50 rounded-lg text-cyan-400"><i class="fa-solid fa-microchip"></i></div>
+                    </div>
+                    <div class="mt-4 flex items-center text-xs text-slate-400">
+                        <span class="text-green-400 mr-1"><i class="fa-solid fa-arrow-up"></i> 18 Online</span>
+                        <span class="mx-2">|</span>
+                        <span class="text-red-400">6 Offline</span>
+                    </div>
+                </div>
+                
+                <div class="bg-slate-800 rounded-xl p-5 border border-slate-700 shadow-lg relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-2 bg-slate-700 rounded-bl-lg text-xs font-bold text-yellow-400">SIMULATED</div>
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-slate-400 text-sm font-medium">Active Alerts</p>
+                            <h3 class="text-3xl font-bold text-white mt-1">3</h3>
+                        </div>
+                        <div class="p-2 bg-red-900/50 rounded-lg text-red-400"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                    </div>
+                    <div class="mt-4 flex items-center text-xs text-slate-400">
+                        <span class="text-red-400 mr-1"><i class="fa-solid fa-circle-exclamation"></i> Critical: 1</span>
+                        <span class="mx-2">|</span>
+                        <span class="text-yellow-400">Warning: 2</span>
+                    </div>
+                </div>
+
+                <div class="bg-slate-800 rounded-xl p-5 border border-slate-700 shadow-lg relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-2 bg-slate-700 rounded-bl-lg text-xs font-bold text-yellow-400">SIMULATED</div>
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-slate-400 text-sm font-medium">Messages (24h)</p>
+                            <h3 class="text-3xl font-bold text-white mt-1">1.2M</h3>
+                        </div>
+                        <div class="p-2 bg-blue-900/50 rounded-lg text-blue-400"><i class="fa-solid fa-envelope"></i></div>
+                    </div>
+                    <div class="mt-4 flex items-center text-xs text-slate-400">
+                        <span class="text-green-400 mr-1"><i class="fa-solid fa-arrow-up"></i> MQTT Traffic Stable</span>
+                    </div>
+                </div>
+
+                <div class="bg-slate-800 rounded-xl p-5 border border-slate-700 shadow-lg relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-2 bg-slate-700 rounded-bl-lg text-xs font-bold text-yellow-400">SIMULATED</div>
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-slate-400 text-sm font-medium">Network Uptime</p>
+                            <h3 class="text-3xl font-bold text-white mt-1">99.98%</h3>
+                        </div>
+                        <div class="p-2 bg-green-900/50 rounded-lg text-green-400"><i class="fa-solid fa-wifi"></i></div>
+                    </div>
+                    <div class="mt-4 flex items-center text-xs text-slate-400">
+                        <span class="text-green-400 mr-1"><i class="fa-solid fa-check"></i> All gateways operational</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Mini Chart -->
+                <div class="bg-slate-800 rounded-xl p-5 border border-slate-700">
+                    <div class="flex justify-between items-center mb-4">
+                        <h4 class="text-white font-semibold">Device Activity (DEMO)</h4>
+                        <span class="text-xs text-cyan-400 cursor-pointer hover:underline" onclick="navigateTo('devices')">View All</span>
+                    </div>
+                    <div class="mini-chart-container">
+                        <canvas id="overviewChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Recent Alerts -->
+                <div class="bg-slate-800 rounded-xl p-5 border border-slate-700">
+                    <div class="flex justify-between items-center mb-4">
+                        <h4 class="text-white font-semibold">Recent Alerts (SIMULATED)</h4>
+                        <span class="text-xs text-cyan-400 cursor-pointer hover:underline" onclick="navigateTo('alerts')">Manage</span>
+                    </div>
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between p-3 bg-slate-900 rounded-lg border border-slate-700">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-2 h-2 rounded-full bg-red-500"></div>
+                                <div>
+                                    <p class="text-sm text-white font-medium">High Temp: Sensor #04</p>
+                                    <p class="text-xs text-slate-400">Just now • Location: Zone A</p>
+                                </div>
+                            </div>
+                            <span class="text-xs font-bold text-red-400 bg-red-900/30 px-2 py-1 rounded">CRITICAL</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-slate-900 rounded-lg border border-slate-700">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-2 h-2 rounded-full bg-yellow-500"></div>
+                                <div>
+                                    <p class="text-sm text-white font-medium">Low Battery: Thermostat #12</p>
+                                    <p class="text-xs text-slate-400">2 hours ago • Location: Office</p>
+                                </div>
+                            </div>
+                            <span class="text-xs font-bold text-yellow-400 bg-yellow-900/30 px-2 py-1 rounded">WARNING</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= DEVICE MONITORING ================= -->
+        <section id="devices" class="page-section">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 space-y-4 md:space-y-0">
+                <div class="flex space-x-2">
+                    <input type="text" id="deviceSearch" placeholder="Search devices..." class="bg-slate-800 border border-slate-700 text-white px-4 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm w-64" onkeyup="filterDevices()">
+                    <select id="deviceTypeFilter" class="bg-slate-800 border border-slate-700 text-white px-4 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm" onchange="filterDevices()">
+                        <option value="">All Types</option>
+                        <option value="Sensor">Sensor</option>
+                        <option value="Switcher">Switcher</option>
+                        <option value="Thermostat">Thermostat</option>
+                    </select>
+                </div>
+                <button onclick="openModal('addDeviceModal')" class="bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-cyan-900/50">
+                    <i class="fa-solid fa-plus mr-2"></i> Register Device
+                </button>
+            </div>
+
+            <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-900/50 text-slate-400 text-xs uppercase tracking-wider border-b border-slate-700">
+                                <th class="p-4 font-semibold">Device ID</th>
+                                <th class="p-4 font-semibold">Type</th>
+                                <th class="p-4 font-semibold">Location</th>
+                                <th class="p-4 font-semibold">Connectivity</th>
+                                <th class="p-4 font-semibold">Last Seen</th>
+                                <th class="p-4 font-semibold">Battery</th>
+                                <th class="p-4 font-semibold">Status</th>
+                                <th class="p-4 font-semibold text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="deviceTableBody" class="text-sm divide-y divide-slate-700">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="emptyState" class="hidden p-8 text-center text-slate-500">
+                    <i class="fa-solid fa-search text-4xl mb-3"></i>
+                    <p>No devices found matching your criteria.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= LIVE SENSOR READINGS ================= -->
+        <section id="readings" class="page-section">
+            <div class="mb-6 p-4 bg-yellow-900/30 border border-yellow-700/50 rounded-lg text-yellow-400 text-sm flex items-center">
+                <i class="fa-solid fa-circle-info mr-3 text-lg"></i>
+                All readings on this page are dynamically generated DEMO data. No physical hardware is connected.
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Temperature -->
+                <div class="bg-slate-800 rounded-xl p-5 border border-slate-700">
+                    <div class="flex justify-between items-center mb-4">
+                        <h4 class="text-white font-semibold flex items-center"><i class="fa-solid fa-temperature-half text-red-400 mr-2"></i> Temperature (°C)</h4>
+                        <span class="text-xs bg-slate-700 text-slate-300 px-2 py-1 rounded">SIMULATED</span>
+                    </div>
+                    <div class="chart-container"><canvas id="tempChart"></canvas></div>
+                </div>
+                <!-- Humidity -->
+                <div class="bg-slate-800 rounded-xl p-5 border border-slate-700">
+                    <div class="flex justify-between items-center mb-4">
+                        <h4 class="text-white font-semibold flex items-center"><i class="fa-solid fa-droplet text-blue-400 mr-2"></i> Humidity (%)</h4>
+                        <span class="text-xs bg-slate-700 text-slate-300 px-2 py-1 rounded">SIMULATED</span>
+                    </div>
+                    <div class="chart-container"><canvas id="humChart"></canvas></div>
+                </div>
+                <!-- Motion -->
+                <div class="bg-slate-800 rounded-xl p-5 border border-slate-700">
+                    <div class="flex justify-between items-center mb-4">
+                        <h4 class="text-white font-semibold flex items-center"><i class="fa-solid fa-person-running text-green-400 mr-2"></i> Motion Events (Bar)</h4>
+                        <span class="text-xs bg-slate-700 text-slate-300 px-2 py-1 rounded">SIMULATED</span>
+                    </div>
+                    <div class="chart-container"><canvas id="motionChart"></canvas></div>
+                </div>
+                <!-- Air Quality -->
+                <div class="bg-slate-800 rounded-xl p-5 border border-slate-700">
+                    <div class="flex justify-between items-center mb-4">
+                        <h4 class="text-white font-semibold flex items-center"><i class="fa-solid fa-wind text-gray-400 mr-2"></i> Air Quality (AQI)</h4>
+                        <span class="text-xs bg-slate-700 text-slate-300 px-2 py-1 rounded">SIMULATED</span>
+                    </div>
+                    <div class="chart-container"><canvas id="airChart"></canvas></div>
+                </div>
+                <!-- Energy -->
+                <div class="bg-slate-800 rounded-xl p-5 border border-slate-700 lg:col-span-2">
+                    <div class="flex justify-between items-center mb-4">
+                        <h4 class="text-white font-semibold flex items-center"><i class="fa-solid fa-bolt text-yellow-400 mr-2"></i> Energy Consumption (kWh)</h4>
+                        <span class="text-xs bg-slate-700 text-slate-300 px-2 py-1 rounded">SIMULATED</span>
+                    </div>
+                    <div class="chart-container"><canvas id="energyChart"></canvas></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= NETWORK CONNECTIVITY ================= -->
+        <section id="network" class="page-section">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 text-center relative">
+                    <span class="absolute top-2 right-2 text-xs text-yellow-500 font-bold border border-yellow-700 px-2 rounded">DEMO</span>
+                    <i class="fa-solid fa-tower-broadcast text-4xl text-cyan-400 mb-3"></i>
+                    <h3 class="text-white text-lg font-semibold">LoRa Gateway</h3>
+                    <p class="text-green-400 text-sm mt-1"><i class="fa-solid fa-circle text-[8px] mr-1"></i> Online</p>
+                    <p class="text-slate-400 text-xs mt-2">Transform LoRa to MQTT</p>
+                </div>
+                <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 text-center relative">
+                    <span class="absolute top-2 right-2 text-xs text-yellow-500 font-bold border border-yellow-700 px-2 rounded">DEMO</span>
+                    <i class="fa-solid fa-right-left text-4xl text-blue-400 mb-3"></i>
+                    <h3 class="text-white text-lg font-semibold">MQTT Broker</h3>
+                    <p class="text-green-400 text-sm mt-1"><i class="fa-solid fa-circle text-[8px] mr-1"></i> Active</p>
+                    <p class="text-slate-400 text-xs mt-2">Port: 1883 (Simulated)</p>
+                </div>
+                <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 text-center relative">
+                    <span class="absolute top-2 right-2 text-xs text-yellow-500 font-bold border border-yellow-700 px-2 rounded">DEMO</span>
+                    <i class="fa-solid fa-server text-4xl text-purple-400 mb-3"></i>
+                    <h3 class="text-white text-lg font-semibold">Local Backend</h3>
+                    <p class="text-green-400 text-sm mt-1"><i class="fa-solid fa-circle text-[8px] mr-1"></i> Running</p>
+                    <p class="text-slate-400 text-xs mt-2">Python / Node.js (Simulated)</p>
+                </div>
+            </div>
+            
+            <div class="bg-slate-800 rounded-xl p-5 border border-slate-700">
+                <h4 class="text-white font-semibold mb-4">Network Traffic (Simulated)</h4>
+                <div class="chart-container" style="height: 200px;">
+                    <canvas id="networkChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= CLOUD STATUS ================= -->
+        <section id="cloud" class="page-section">
+            <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden mb-6 relative">
+                <div class="absolute top-4 right-4 bg-yellow-900/50 text-yellow-400 text-xs px-2 py-1 rounded border border-yellow-700 font-bold">SIMULATED</div>
+                <div class="p-6 border-b border-slate-700">
+                    <h3 class="text-lg font-semibold text-white mb-2"><i class="fa-solid fa-cloud text-cyan-400 mr-2"></i> Cloud Services Health</h3>
+                    <p class="text-sm text-slate-400">Status of simulated backend services.</p>
+                </div>
+                <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm text-slate-300">API Service</span>
+                            <span class="text-green-400 text-sm font-medium">Operational</span>
+                        </div>
+                        <div class="w-full bg-slate-700 rounded-full h-2"><div class="bg-green-500 h-2 rounded-full" style="width: 100%"></div></div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm text-slate-300">Websocket Service</span>
+                            <span class="text-green-400 text-sm font-medium">Operational</span>
+                        </div>
+                        <div class="w-full bg-slate-700 rounded-full h-2"><div class="bg-green-500 h-2 rounded-full" style="width: 100%"></div></div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm text-slate-300">Device Provisioning</span>
+                            <span class="text-green-400 text-sm font-medium">Operational</span>
+                        </div>
+                        <div class="w-full bg-slate-700 rounded-full h-2"><div class="bg-green-500 h-2 rounded-full" style="width: 100%"></div></div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm text-slate-300">Authentication Service</span>
+                            <span class="text-yellow-400 text-sm font-medium">Degraded (Demo)</span>
+                        </div>
+                        <div class="w-full bg-slate-700 rounded-full h-2"><div class="bg-yellow-500 h-2 rounded-full" style="width: 75%"></div></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= DATABASE STATISTICS ================= -->
+        <section id="database" class="page-section">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="bg-slate-800 rounded-xl p-6 border border-slate-700 relative">
+                    <div class="absolute top-4 right-4 bg-yellow-900/50 text-yellow-400 text-xs px-2 py-1 rounded border border-yellow-700 font-bold">SIMULATED</div>
+                    <h3 class="text-white font-semibold mb-4"><i class="fa-solid fa-database text-cyan-400 mr-2"></i> PostgreSQL (Relational)</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <div class="flex justify-between text-sm mb-1"><span class="text-slate-400">Storage Used</span><span class="text-white">4.2 GB / 10 GB</span></div>
+                            <div class="w-full bg-slate-700 rounded-full h-2"><div class="bg-cyan-500 h-2 rounded-full" style="width: 42%"></div></div>
+                        </div>
+                        <div class="flex justify-between text-sm border-b border-slate-700 pb-2">
+                            <span class="text-slate-400">Active Connections</span><span class="text-white">24</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-slate-400">Transactions/sec</span><span class="text-white">145</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-slate-800 rounded-xl p-6 border border-slate-700 relative">
+                    <div class="absolute top-4 right-4 bg-yellow-900/50 text-yellow-400 text-xs px-2 py-1 rounded border border-yellow-700 font-bold">SIMULATED</div>
+                    <h3 class="text-white font-semibold mb-4"><i class="fa-solid fa-chart-line text-cyan-400 mr-2"></i> TimescaleDB (Time-Series)</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <div class="flex justify-between text-sm mb-1"><span class="text-slate-400">Storage Used</span><span class="text-white">128 GB / 500 GB</span></div>
+                            <div class="w-full bg-slate-700 rounded-full h-2"><div class="bg-cyan-500 h-2 rounded-full" style="width: 25%"></div></div>
+                        </div>
+                        <div class="flex justify-between text-sm border-b border-slate-700 pb-2">
+                            <span class="text-slate-400">Chunks</span><span class="text-white">1,024</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-slate-400">Ingest Rate</span><span class="text-white">450 rows/sec</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= CYBERSECURITY ================= -->
+        <section id="security" class="page-section">
+            <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden mb-6">
+                <div class="p-6 border-b border-slate-700 flex justify-between items-center">
+                    <h3 class="text-lg font-semibold text-white"><i class="fa-solid fa-shield-halved text-cyan-400 mr-2"></i> Security Posture</h3>
+                    <span class="text-xs bg-yellow-900/50 text-yellow-400 px-2 py-1 rounded border border-yellow-700 font-bold">SIMULATED DATA</span>
+                </div>
+                <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="flex items-center space-x-4 p-4 bg-slate-900 rounded-lg border border-slate-700">
+                        <div class="p-3 bg-green-900/50 text-green-400 rounded-full"><i class="fa-solid fa-lock"></i></div>
+                        <div>
+                            <p class="text-sm text-slate-400">MFA Status</p>
+                            <p class="text-lg font-bold text-white">Enforced</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4 p-4 bg-slate-900 rounded-lg border border-slate-700">
+                        <div class="p-3 bg-green-900/50 text-green-400 rounded-full"><i class="fa-solid fa-key"></i></div>
+                        <div>
+                            <p class="text-sm text-slate-400">TLS Version</p>
+                            <p class="text-lg font-bold text-white">1.3 Active</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4 p-4 bg-slate-900 rounded-lg border border-slate-700">
+                        <div class="p-3 bg-yellow-900/50 text-yellow-400 rounded-full"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                        <div>
+                            <p class="text-sm text-slate-400">Failed Logins (24h)</p>
+                            <p class="text-lg font-bold text-white">4</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+                <div class="p-6 border-b border-slate-700">
+                    <h3 class="text-lg font-semibold text-white">Audit Logs & Suspicious Activity (SIMULATED)</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-900/50 text-slate-400 border-b border-slate-700">
+                            <tr>
+                                <th class="p-4 font-semibold">Timestamp</th>
+                                <th class="p-4 font-semibold">Event Type</th>
+                                <th class="p-4 font-semibold">Severity</th>
+                                <th class="p-4 font-semibold">Remediation / Details</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-700">
+                            <tr class="table-row">
+                                <td class="p-4 text-slate-300">2023-10-27 10:45:12</td>
+                                <td class="p-4 text-slate-300">Failed Login Attempt</td>
+                                <td class="p-4"><span class="text-yellow-400 bg-yellow-900/30 px-2 py-1 rounded text-xs font-bold">WARNING</span></td>
+                                <td class="p-4 text-slate-400">IP: 192.168.1.105. Rate limit applied.</td>
+                            </tr>
+                            <tr class="table-row">
+                                <td class="p-4 text-slate-300">2023-10-27 09:12:00</td>
+                                <td class="p-4 text-slate-300">Suspicious Device Connection</td>
+                                <td class="p-4"><span class="text-red-400 bg-red-900/30 px-2 py-1 rounded text-xs font-bold">CRITICAL</span></td>
+                                <td class="p-4 text-slate-400">MAC: 00:1B:44:11:3A:B7 blocked. Remediation: MAC filtering verified.</td>
+                            </tr>
+                            <tr class="table-row">
+                                <td class="p-4 text-slate-300">2023-10-26 18:30:22</td>
+                                <td class="p-4 text-slate-300">TLS Certificate Renewal</td>
+                                <td class="p-4"><span class="text-green-400 bg-green-900/30 px-2 py-1 rounded text-xs font-bold">INFO</span></td>
+                                <td class="p-4 text-slate-400">Auto-renewal successful. Next expiry: 90 days.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= ALERTS ================= -->
+        <section id="alerts" class="page-section">
+            <div class="space-y-4" id="alertList">
+                <!-- Populated by JS -->
+            </div>
+            <div id="emptyAlerts" class="hidden bg-slate-800 p-12 rounded-xl border border-slate-700 text-center">
+                <i class="fa-solid fa-check-circle text-green-400 text-5xl mb-4"></i>
+                <h3 class="text-xl text-white font-semibold">All Clear!</h3>
+                <p class="text-slate-400 mt-2">No active alerts in the system.</p>
+            </div>
+        </section>
+
+        <!-- ================= SETTINGS & COMMANDS ================= -->
+        <section id="settings" class="page-section">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                <!-- Command Panel -->
+                <div class="bg-slate-800 rounded-xl p-6 border border-slate-700">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-lg font-semibold text-white"><i class="fa-solid fa-terminal text-cyan-400 mr-2"></i> Device Command Panel</h3>
+                        <span class="text-xs bg-red-900/50 text-red-400 px-2 py-1 rounded border border-red-700 font-bold animate-pulse">SIMULATION ONLY</span>
+                    </div>
+                    
+                    <form id="commandForm" onsubmit="executeCommand(event)">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-slate-300 mb-2">Select Target Device</label>
+                            <select id="cmdDevice" class="w-full bg-slate-900 border border-slate-700 text-white px-4 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm">
+                                <option value="Dev-001">Thermostat #1 (Zone A)</option>
+                                <option value="Dev-002">Sensor #4 (Zone B)</option>
+                                <option value="Dev-003">Switcher #12 (Office)</option>
+                            </select>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-slate-300 mb-2">Command Action</label>
+                            <select id="cmdAction" class="w-full bg-slate-900 border border-slate-700 text-white px-4 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm">
+                                <option value="reboot">Reboot Device</option>
+                                <option value="update">Trigger Firmware Update</option>
+                                <option value="sync">Force Data Sync</option>
+                                <option value="toggle">Toggle Relay State</option>
+                            </select>
+                        </div>
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-slate-300 mb-2">Payload (Optional JSON)</label>
+                            <input type="text" id="cmdPayload" placeholder='{"target": 22}' class="w-full bg-slate-900 border border-slate-700 text-white px-4 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm font-mono">
+                        </div>
+                        <button type="submit" class="w-full bg-slate-700 hover:bg-slate-600 text-white font-medium py-2 rounded-lg transition-colors border border-slate-600">
+                            Execute Simulated Command
+                        </button>
+                    </form>
+
+                    <div class="mt-8 border-t border-slate-700 pt-6">
+                        <h4 class="text-sm font-semibold text-slate-300 mb-3">Command Activity Log</h4>
+                        <div id="commandLog" class="bg-slate-900 rounded-lg p-3 h-32 overflow-y-auto text-xs font-mono space-y-2 border border-slate-700 text-slate-400">
+                            <div class="text-cyan-400">> System ready...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- General Settings -->
+                <div class="bg-slate-800 rounded-xl p-6 border border-slate-700">
+                    <h3 class="text-lg font-semibold text-white mb-6"><i class="fa-solid fa-sliders text-cyan-400 mr-2"></i> Dashboard Settings</h3>
+                    
+                    <div class="space-y-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-white">Demo Mode</p>
+                                <p class="text-xs text-slate-400">Toggle simulated data updates.</p>
+                            </div>
+                            <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                                <input type="checkbox" name="toggle" id="demoToggle" checked class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
+                                <label for="demoToggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center justify-between border-t border-slate-700 pt-4">
+                            <div>
+                                <p class="text-sm font-medium text-white">Dark Mode</p>
+                                <p class="text-xs text-slate-400">Force dark theme (MVP default).</p>
+                            </div>
+                            <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                                <input type="checkbox" name="toggle" id="themeToggle" checked disabled class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-not-allowed opacity-50"/>
+                                <label for="themeToggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-cyan-500 cursor-not-allowed opacity-50"></label>
+                            </div>
+                        </div>
+                        
+                        <div class="border-t border-slate-700 pt-4">
+                            <label class="block text-sm font-medium text-slate-300 mb-2">Data Refresh Interval</label>
+                            <select class="w-full bg-slate-900 border border-slate-700 text-white px-4 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm">
+                                <option>2 Seconds (Demo Default)</option>
+                                <option>5 Seconds</option>
+                                <option>10 Seconds</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= HELP ================= -->
+        <section id="help" class="page-section">
+            <div class="bg-slate-800 rounded-xl p-8 border border-slate-700 max-w-4xl mx-auto">
+                <h2 class="text-2xl font-bold text-white mb-4"><i class="fa-solid fa-circle-info text-cyan-400 mr-3"></i> MVP Limitations & Documentation</h2>
+                
+                <div class="space-y-6 text-slate-300 text-sm leading-relaxed">
+                    <div class="bg-slate-900 p-4 rounded-lg border border-yellow-700/50">
+                        <p class="text-yellow-400 font-semibold mb-2">Important Disclaimer</p>
+                        <p>This is a front-end MVP demonstration. <strong>All devices, sensor readings, network metrics, security scans, and database statistics are entirely simulated (DEMO) directly in your browser.</strong> This application does not connect to any real hardware, MQTT brokers, cloud services, or databases. No secrets or API keys are exposed or required for this demo.</p>
+                    </div>
+
+                    <div>
+                        <h3 class="text-white font-semibold mb-2">Architecture Inspiration</h3>
+                        <p>The dashboard UI models an IoT architecture where Sensors/Switchers communicate via LoRa to a Gateway. The Gateway transforms LoRa packets to MQTT, sending them to a Local Backend (Python/Node.js). The backend manages a database and exposes APIs/Websockets to this web application.</p>
+                    </div>
+
+                    <div>
+                        <h3 class="text-white font-semibold mb-2">Future Integration Roadmap</h3>
+                        <ul class="list-disc list-inside space-y-1 ml-2">
+                            <li><strong>Hardware:</strong> Integration with ESP32 microcontrollers utilizing LoRaWAN protocols.</li>
+                            <li><strong>Messaging:</strong> Connection to a real MQTT broker (e.g., Mosquitto, EMQX) for bi-directional communication.</li>
+                            <li><strong>Backend:</strong> FastAPI (Python) or Node.js backend for routing and device management.</li>
+                            <li><strong>Database:</strong> PostgreSQL for relational data (users, devices) and TimescaleDB for high-frequency time-series sensor data.</li>
+                            <li><strong>Security:</strong> Implementation of JWT authentication, TLS encryption for MQTT/HTTP, and role-based access control (RBAC).</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ================= MODALS ================= -->
+    
+    <!-- Add Device Modal -->
+    <div id="addDeviceModal" class="modal">
+        <div class="bg-slate-800 rounded-xl border border-slate-700 shadow-2xl w-full max-w-md p-6 m-4 animate-fade-in">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold text-white">Register New Device</h3>
+                <button onclick="closeModal('addDeviceModal')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <form id="addDeviceForm" onsubmit="handleAddDevice(event)">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-300 mb-1">Device ID</label>
+                        <input type="text" id="newDevId" required class="w-full bg-slate-900 border border-slate-700 text-white px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm" placeholder="e.g. Dev-025">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-300 mb-1">Device Type</label>
+                        <select id="newDevType" class="w-full bg-slate-900 border border-slate-700 text-white px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm">
+                            <option value="Sensor">Sensor</option>
+                            <option value="Switcher">Switcher</option>
+                            <option value="Thermostat">Thermostat</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-300 mb-1">Location</label>
+                        <input type="text" id="newDevLoc" required class="w-full bg-slate-900 border border-slate-700 text-white px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm" placeholder="e.g. Zone C">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-300 mb-1">Connectivity</label>
+                        <select id="newDevConn" class="w-full bg-slate-900 border border-slate-700 text-white px-3 py-2 rounded-lg focus:outline-none focus:border-cyan-500 text-sm">
+                            <option value="Wi-Fi">Wi-Fi</option>
+                            <option value="LoRa">LoRa</option>
+                            <option value="Ethernet">Ethernet</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-8 flex justify-end space-x-3">
+                    <button type="button" onclick="closeModal('addDeviceModal')" class="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white transition-colors">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-medium rounded-lg transition-colors shadow-lg shadow-cyan-900/50">Save Device</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmModal" class="modal">
+        <div class="bg-slate-800 rounded-xl border border-slate-700 shadow-2xl w-full max-w-sm p-6 m-4 text-center">
+            <div class="w-16 h-16 bg-yellow-900/50 text-yellow-400 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-2">Confirm Action</h3>
+            <p class="text-slate-400 text-sm mb-6" id="confirmMessage">Are you sure you want to execute this simulated command?</p>
+            <div class="flex justify-center space-x-3">
+                <button onclick="closeModal('confirmModal')" class="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white transition-colors bg-slate-700 rounded-lg">Cancel</button>
+                <button id="confirmBtn" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-medium rounded-lg transition-colors">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-slate-800 border-l-4 border-cyan-500 text-white px-6 py-3 rounded shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 z-50 flex items-center">
+        <i class="fa-solid fa-check-circle text-cyan-400 mr-3"></i>
+        <span id="toastMsg">Action completed</span>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // --- STATE MANAGEMENT ---
+        let charts = {};
+        let demoInterval;
+        let isDemoMode = true;
+
+        const devices = [
+            { id: 'Dev-001', type: 'Thermostat', location: 'Zone A', conn: 'Wi-Fi', lastSeen: 'Just now', battery: '85%', status: 'Online' },
+            { id: 'Dev-002', type: 'Sensor', location: 'Zone B', conn: 'LoRa', lastSeen: '2 mins ago', battery: '92%', status: 'Online' },
+            { id: 'Dev-003', type: 'Switcher', location: 'Office', conn: 'Ethernet', lastSeen: '1 min ago', battery: 'N/A', status: 'Online' },
+            { id: 'Dev-004', type: 'Sensor', location: 'Zone A', conn: 'LoRa', lastSeen: '5 mins ago', battery: '15%', status: 'Warning' },
+            { id: 'Dev-005', type: 'Thermostat', location: 'Server Room', conn: 'Wi-Fi', lastSeen: '3 hours ago', battery: '60%', status: 'Offline' },
+            { id: 'Dev-006', type: 'Sensor', location: 'Lobby', conn: 'LoRa', lastSeen: 'Just now', battery: '78%', status: 'Online' },
+        ];
+
+        const alerts = [
+            { id: 1, title: 'High Temp: Sensor #04', desc: 'Temperature exceeded threshold (35°C).', severity: 'Critical', time: 'Just now', status: 'Active' },
+            { id: 2, title: 'Low Battery: Thermostat #12', desc: 'Battery dropped below 20%.', severity: 'Warning', time: '2 hours ago', status: 'Active' },
+            { id: 3, title: 'Gateway Latency', desc: 'LoRa to MQTT transformation delayed by 500ms.', severity: 'Warning', time: '5 hours ago', status: 'Active' },
+        ];
+
+        // --- INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', () => {
+            renderDeviceTable();
+            renderAlerts();
+            initCharts();
+            startDemoMode();
+            
+            // Setup sidebar toggle for mobile
+            const sidebar = document.getElementById('sidebar');
+            const main = document.querySelector('main');
+            
+            // Keyboard accessibility for sidebar
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        link.click();
+                    }
+                });
+            });
+        });
+
+        // --- NAVIGATION ---
+        function navigateTo(pageId) {
+            // Hide all sections
+            document.querySelectorAll('.page-section').forEach(sec => sec.classList.remove('active'));
+            // Show target section
+            document.getElementById(pageId).classList.add('active');
+            
+            // Update nav links
+            document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+
+            // Update Title
+            const titles = {
+                'overview': 'Overview',
+                'devices': 'Device Monitoring',
+                'readings': 'Live Sensor Readings',
+                'network': 'Network Connectivity',
+                'cloud': 'Cloud Status',
+                'database': 'Database Statistics',
+                'security': 'Cybersecurity Control Center',
+                'alerts': 'Alerts',
+                'settings': 'Settings & Commands',
+                'help': 'Help & Documentation'
+            };
+            document.getElementById('page-title').innerText = titles[pageId];
+
+            // Mobile: close sidebar after selection
+            if (window.innerWidth < 768) {
+                document.getElementById('sidebar').classList.add('-translate-x-full');
+            }
+
+            // Fix charts resizing issue
+            setTimeout(() => {
+                Object.values(charts).forEach(chart => {
+                    if(chart) chart.resize();
+                });
+            }, 100);
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('-translate-x-full');
+        }
+
+        // --- DEVICE TABLE LOGIC ---
+        function renderDeviceTable(filterType = '', searchTerm = '') {
+            const tbody = document.getElementById('deviceTableBody');
+            const emptyState = document.getElementById('emptyState');
+            tbody.innerHTML = '';
+
+            const filtered = devices.filter(d => {
+                const matchesType = filterType ? d.type === filterType : true;
+                const matchesSearch = d.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                      d.location.toLowerCase().includes(searchTerm.toLowerCase());
+                return matchesType && matchesSearch;
+            });
+
+            if (filtered.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            filtered.forEach(dev => {
+                let statusBadge = '';
+                if (dev.status === 'Online') statusBadge = '<span class="text-green-400 bg-green-900/30 px-2 py-1 rounded text-xs font-bold flex items-center w-max"><i class="fa-solid fa-circle text-[6px] mr-1"></i> Online</span>';
+                else if (dev.status === 'Warning') statusBadge = '<span class="text-yellow-400 bg-yellow-900/30 px-2 py-1 rounded text-xs font-bold flex items-center w-max"><i class="fa-solid fa-circle text-[6px] mr-1"></i> Warning</span>';
+                else statusBadge = '<span class="text-slate-400 bg-slate-700 px-2 py-1 rounded text-xs font-bold flex items-center w-max"><i class="fa-solid fa-circle text-[6px] mr-1"></i> Offline</span>';
+                
+                let batteryColor = 'text-green-400';
+                if (dev.battery !== 'N/A') {
+                    const bat = parseInt(dev.battery);
+                    if (bat < 20) batteryColor = 'text-red-400';
+                    else if (bat < 50) batteryColor = 'text-yellow-400';
+                } else {
+                    batteryColor = 'text-slate-500';
+                }
+
+                const row = `
+                    <tr class="table-row transition-colors">
+                        <td class="p-4 font-medium text-white">${dev.id}</td>
+                        <td class="p-4 text-slate-300">${dev.type}</td>
+                        <td class="p-4 text-slate-300">${dev.location}</td>
+                        <td class="p-4 text-slate-300"><i class="fa-solid ${dev.conn === 'Wi-Fi' ? 'fa-wifi' : dev.conn === 'LoRa' ? 'fa-tower-broadcast' : 'fa-network-wired'} mr-2 text-cyan-500"></i>${dev.conn}</td>
+                        <td class="p-4 text-slate-400">${dev.lastSeen}</td>
+                        <td class="p-4 font-mono ${batteryColor}">${dev.battery}</td>
+                        <td class="p-4">${statusBadge}</td>
+                        <td class="p-4 text-right">
+                            <button onclick="viewDevice('${dev.id}')" class="text-cyan-400 hover:text-cyan-300 p-2" aria-label="View details"><i class="fa-solid fa-eye"></i></button>
+                        </td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        }
+
+        function filterDevices() {
+            const search = document.getElementById('deviceSearch').value;
+            const type = document.getElementById('deviceTypeFilter').value;
+            renderDeviceTable(type, search);
+        }
+
+        // --- MODAL LOGIC ---
+        function openModal(id) {
+            document.getElementById(id).classList.add('active');
+            // Focus first input for accessibility
+            const input = document.getElementById(id).querySelector('input, select');
+            if(input) input.focus();
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('active');
+        }
+
+        function handleAddDevice(e) {
+            e.preventDefault();
+            const id = document.getElementById('newDevId').value;
+            const type = document.getElementById('newDevType').value;
+            const loc = document.getElementById('newDevLoc').value;
+            const conn = document.getElementById('newDevConn').value;
+
+            // Basic validation (HTML required handles most, but double check)
+            if(!id || !loc) {
+                showToast('Please fill all required fields.', true);
+                return;
+            }
+
+            devices.unshift({
+                id: id,
+                type: type,
+                location: loc,
+                conn: conn,
+                lastSeen: 'Just now',
+                battery: '100%',
+                status: 'Online'
+            });
+
+            closeModal('addDeviceModal');
+            document.getElementById('addDeviceForm').reset();
+            renderDeviceTable();
+            showToast('Device registered successfully (Simulated).');
+        }
+
+        // --- ALERTS LOGIC ---
+        function renderAlerts() {
+            const list = document.getElementById('alertList');
+            const empty = document.getElementById('emptyAlerts');
+            list.innerHTML = '';
+
+            if (alerts.length === 0) {
+                list.classList.add('hidden');
+                empty.classList.remove('hidden');
+                document.getElementById('alert-badge').style.display = 'none';
+                return;
+            }
+
+            list.classList.remove('hidden');
+            empty.classList.add('hidden');
+            document.getElementById('alert-badge').style.display = 'inline-block';
+            document.getElementById('alert-badge').innerText = alerts.length;
+
+            alerts.forEach(alert => {
+                let sevClass = alert.severity === 'Critical' ? 'bg-red-900/30 text-red-400 border-red-700' : 'bg-yellow-900/30 text-yellow-400 border-yellow-700';
+                let icon = alert.severity === 'Critical' ? 'fa-triangle-exclamation' : 'fa-circle-exclamation';
+
+                list.innerHTML += `
+                    <div class="bg-slate-800 rounded-xl p-4 border border-slate-700 flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
+                        <div class="flex items-start space-x-4">
+                            <div class="p-3 rounded-full bg-slate-900 border ${sevClass}">
+                                <i class="fa-solid ${icon}"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-white font-semibold">${alert.title}</h4>
+                                <p class="text-sm text-slate-400">${alert.desc}</p>
+                                <span class="text-xs text-slate-500 mt-1 block">${alert.time}</span>
+                            </div>
+                        </div>
+                        <div class="flex space-x-2 w-full md:w-auto">
+                            <button onclick="resolveAlert(${alert.id})" class="flex-1 md:flex-none px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm rounded-lg transition-colors">
+                                Acknowledge
+                            </button>
+                            <button onclick="resolveAlert(${alert.id})" class="flex-1 md:flex-none px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-sm rounded-lg transition-colors">
+                                Resolve
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function resolveAlert(id) {
+            const index = alerts.findIndex(a => a.id === id);
+            if (index > -1) {
+                alerts.splice(index, 1);
+                renderAlerts();
+                showToast('Alert resolved successfully (Simulated).');
+            }
+        }
+
+        // --- COMMAND PANEL LOGIC ---
+        function executeCommand(e) {
+            e.preventDefault();
+            const dev = document.getElementById('cmdDevice').options[document.getElementById('cmdDevice').selectedIndex].text;
+            const action = document.getElementById('cmdAction').value;
+            const payload = document.getElementById('cmdPayload').value;
+
+            document.getElementById('confirmMessage').innerText = `Are you sure you want to send command '${action.toUpperCase()}' to ${dev}?`;
+            
+            document.getElementById('confirmBtn').onclick = () => {
+                closeModal('confirmModal');
+                const log = document.getElementById('commandLog');
+                const time = new Date().toLocaleTimeString();
+                
+                log.innerHTML += `<div class="text-cyan-400">> [${time}] Sending command: ${action} to ${dev}...</div>`;
+                
+                // Simulate network delay
+                setTimeout(() => {
+                    log.innerHTML += `<div class="text-green-400">> [${new Date().toLocaleTimeString()}] SUCCESS: Acknowledgment received from ${dev}.</div>`;
+                    log.scrollTop = log.scrollHeight;
+                    showToast('Command executed successfully (Simulated).');
+                }, 800);
+                
+                log.scrollTop = log.scrollHeight;
+            };
+            openModal('confirmModal');
+        }
+
+        // --- CHARTS LOGIC ---
+        function initCharts() {
+            Chart.defaults.color = '#94a3b8';
+            Chart.defaults.borderColor = '#334155';
+
+            const commonOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 0 },
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { display: false } },
+                    y: { grid: { color: '#334155' } }
+                }
+            };
+
+            // Overview Mini Chart
+            const ctxOverview = document.getElementById('overviewChart').getContext('2d');
+            charts.overview = new Chart(ctxOverview, {
+                type: 'line',
+                data: {
+                    labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'],
+                    datasets: [{
+                        data: [10, 15, 12, 25, 22, 30],
+                        borderColor: '#06b6d4',
+                        backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 2,
+                        pointRadius: 0
+                    }]
+                },
+                options: { ...commonOptions, scales: { x: { display: false }, y: { display: false } } }
+            });
+
+            // Live Readings Charts
+            charts.temp = new Chart(document.getElementById('tempChart'), {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: 'Temp', data: [], borderColor: '#ef4444', tension: 0.4, pointRadius: 0 }] },
+                options: commonOptions
+            });
+
+            charts.hum = new Chart(document.getElementById('humChart'), {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: 'Humidity', data: [], borderColor: '#3b82f6', tension: 0.4, pointRadius: 0 }] },
+                options: commonOptions
+            });
+
+            charts.motion = new Chart(document.getElementById('motionChart'), {
+                type: 'bar',
+                data: { labels: [], datasets: [{ label: 'Motion', data: [], backgroundColor: '#10b981' }] },
+                options: commonOptions
+            });
+
+            charts.air = new Chart(document.getElementById('airChart'), {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: 'AQI', data: [], borderColor: '#a855f7', tension: 0.4, pointRadius: 0, fill: true, backgroundColor: 'rgba(168, 85, 247, 0.1)' }] },
+                options: commonOptions
+            });
+
+            charts.energy = new Chart(document.getElementById('energyChart'), {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: 'Energy', data: [], borderColor: '#eab308', tension: 0.4, pointRadius: 0 }] },
+                options: commonOptions
+            });
+
+            // Network Chart
+            charts.network = new Chart(document.getElementById('networkChart'), {
+                type: 'line',
+                data: {
+                    labels: ['-30s', '-20s', '-10s', 'Now'],
+                    datasets: [
+                        { label: 'MQTT In', data: [120, 150, 140, 160], borderColor: '#06b6d4', tension: 0.4 },
+                        { label: 'MQTT Out', data: [80, 90, 85, 95], borderColor: '#64748b', tension: 0.4 }
+                    ]
+                },
+                options: { ...commonOptions, plugins: { legend: { display: true, position: 'top' } } }
+            });
+        }
+
+        function updateCharts() {
+            if(!isDemoMode) return;
+
+            const now = new Date().toLocaleTimeString();
+            
+            // Helper to shift data
+            const shiftData = (chart, maxPoints, min, max) => {
+                if (chart.data.labels.length > maxPoints) {
+                    chart.data.labels.shift();
+                    chart.data.datasets[0].data.shift();
+                }
+                chart.data.labels.push(now);
+                chart.data.datasets[0].data.push(Math.floor(Math.random() * (max - min + 1)) + min);
+                chart.update();
+            };
+
+            shiftData(charts.temp, 15, 20, 35);
+            shiftData(charts.hum, 15, 40, 60);
+            
+            // Motion (Bar)
+            if (charts.motion.data.labels.length > 10) {
+                charts.motion.data.labels.shift();
+                charts.motion.data.datasets[0].data.shift();
+            }
+            charts.motion.data.labels.push(now);
+            charts.motion.data.datasets[0].data.push(Math.random() > 0.7 ? 1 : 0);
+            charts.motion.update();
+
+            shiftData(charts.air, 15, 30, 80);
+            shiftData(charts.energy, 15, 5, 15);
+
+            // Update Network Chart independently
+            if (charts.network.data.labels.length > 4) {
+                charts.network.data.labels.shift();
+                charts.network.data.datasets[0].data.shift();
+                charts.network.data.datasets[1].data.shift();
+            }
+            charts.network.data.labels.push(now);
+            charts.network.data.datasets[0].data.push(Math.floor(Math.random() * 50) + 120);
+            charts.network.data.datasets[1].data.push(Math.floor(Math.random() * 30) + 70);
+            charts.network.update();
+        }
+
+        function startDemoMode() {
+            if (demoInterval) clearInterval(demoInterval);
+            demoInterval = setInterval(updateCharts, 2000);
+        }
+
+        // Toggle demo mode
+        document.getElementById('demoToggle').addEventListener('change', (e) => {
+            isDemoMode = e.target.checked;
+            if(isDemoMode) {
+                startDemoMode();
+                showToast('Demo mode started.');
+            } else {
+                clearInterval(demoInterval);
+                showToast('Demo mode paused.');
+            }
+        });
+
+        // --- UTILITIES ---
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            const icon = toast.querySelector('i');
+            
+            toastMsg.innerText = msg;
+            
+            if(isError) {
+                toast.classList.replace('border-cyan-500', 'border-red-500');
+                icon.className = 'fa-solid fa-circle-exclamation text-red-500 mr-3';
+            } else {
+                toast.classList.replace('border-red-500', 'border-cyan-500');
+                icon.className = 'fa-solid fa-check-circle text-cyan-400 mr-3';
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        function viewDevice(id) {
+            showToast(`Opening details for ${id} (Simulated)`);
+        }
+    </script>
+</body>
+</html>
